@@ -3,25 +3,31 @@ import os
 import pathlib
 from sentiment_analyser import train
 from sentiment_analyser import evaluate
+from spacy.compat import pickle
+
 
 train_samples = [
     ('bom', 1),
-    ('perfeito', 0),
+    ('perfeito', 1),
+    ('rápido', 1),
     ('ruim', 0),
+    ('não', 0),
     ('melhorar', 0),
     ('demorar', 0)
 ]
 
 validation_samples = [
-    ('boa proposta', 1),
-    ('não gostar', 0)
+    ('bom proposta', 1),
+    ('servir perfeitamente', 1),
+    ('não gostar', 0),
+    ('produto ruim', 0)
 ]
 
 test_samples = [
-    ('a empresa tem uma boa proposta, gostei', 1),
-    ('a empresa é tudo de bom', 1),
-    ('pode melhorar', 0),
-    ('não é o que eu esperava', 0)
+    ('bom', 1),
+    ('empresa bom', 1),
+    ('poder melhorar', 0),
+    ('não esperar', 0)
 ]
 
 
@@ -30,10 +36,10 @@ def execute(model_dir=None, train_dir=None, dev_dir=None,
             nr_hidden=64, max_length=100, # Shape
             dropout=0.5, learn_rate=0.001, # General NN config
             nb_epoch=5, batch_size=256, nr_examples=-1):  # Training params
-    train_texts = [item[0] for item in train_samples];
-    train_labels = [item[1] for item in train_samples];
-    val_texts = [item[0] for item in validation_samples];
-    val_labels = [item[1] for item in validation_samples];
+    train_texts = [item[0] for item in train_samples]
+    train_labels = [item[1] for item in train_samples]
+    val_texts = [item[0] for item in validation_samples]
+    val_labels = [item[1] for item in validation_samples]
     
     
     if model_dir is not None:
@@ -70,5 +76,5 @@ def evaluate_network():
 
 
 if __name__ == '__main__':
-	train_network()
-	# evaluate_network()
+	# train_network()
+	evaluate_network()

@@ -1,9 +1,11 @@
 import cytoolz
+import numpy
 import spacy
 from keras.layers import LSTM, Dense, Embedding, Bidirectional, Dropout
 from keras.layers import TimeDistributed
 from keras.models import Sequential, model_from_json
 from keras.optimizers import Adam
+from spacy.compat import pickle
 
 
 pt_br_model = 'pt_wikipedia_md'
@@ -33,18 +35,12 @@ class SentimentAnalyser(object):
         self.set_sentiment(doc, y)
 
     def pipe(self, docs, batch_size=1000, n_threads=2):
-        print('Docs: {}'.format(docs))
-        for minibatch in cytoolz.partition_all(batch_size, docs):
-            minibatch = list(minibatch)
-            sentences = []
-            for doc in minibatch:
-                sentences.extend(doc.sents)
-            Xs = get_features(sentences, self.max_length)
+        for doc in docs:
+            Xs = get_features([doc], self.max_length)
             ys = self._model.predict(Xs)
-            for sent, label in zip(sentences, ys):
-                sent.doc.sentiment += label
-            for doc in minibatch:
-                yield doc
+            for doc, label in zip([doc], ys):
+                doc.sentiment = label
+            yield doc
 
     def set_sentiment(self, doc, y):
         doc.sentiment = float(y[0])
@@ -54,14 +50,12 @@ def get_labelled_sentences(docs, doc_labels):
     labels = []
     sentences = []
     for doc, y in zip(docs, doc_labels):
-        for sent in doc.sents:
-            sentences.append(sent)
-            labels.append(y)
+        sentences.append(doc)
+        labels.append(y)
     return sentences, numpy.asarray(labels, dtype='int32')
 
 
-def get_features(docs, max_length):
-    docs = list(docs)
+def get_features(docs: list, max_length):
     Xs = numpy.zeros((len(docs), max_length), dtype='int32')
     for i, doc in enumerate(docs):
         j = 0
@@ -104,11 +98,10 @@ def train(train_texts, train_labels, dev_texts, dev_labels,
           lstm_shape, lstm_settings, lstm_optimizer, batch_size=100,
           nb_epoch=5, by_sentence=True):
     print("Loading spaCy")
-    nlp = spacy.load(pt_br_model, disable=['parser'])
-    nlp.add_pipe(nlp.create_pipe('sentencizer'), first=True)
+    nlp = spacy.load(pt_br_model)
     embeddings = get_embeddings(nlp.vocab)
     model = compile_lstm(embeddings, lstm_shape, lstm_settings)
-    
+
     print("Parsing texts...")
     train_docs = list(nlp.pipe(train_texts))
     dev_docs = list(nlp.pipe(dev_texts))
@@ -126,10 +119,9 @@ def train(train_texts, train_labels, dev_texts, dev_labels,
 
 
 def evaluate(model_dir, texts, labels, max_length=100):
-    nlp = spacy.load(pt_br_model, disable=['parser'])
+    nlp = spacy.load(pt_br_model)
     nlp.add_pipe(nlp.create_pipe('sentencizer'), first=True)
     nlp.add_pipe(SentimentAnalyser.load(model_dir, nlp, max_length=max_length))
-
     correct = 0
     i = 0
     for doc in nlp.pipe(texts, batch_size=1000, n_threads=4):
